@@ -4,7 +4,7 @@
 
 `/client/360theater/app`: entry point for the AR/VR user
 
-If you want to make use of 3D models, add them in separate folders inside `obj`.
+If you want to make use of 3D models, add them as `.obj` or `.mtl` files in separate folders inside `/client/360theater/obj`.
 
 ---
 
