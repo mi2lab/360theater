@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>360box VR App</title>
+
+	<link rel="icon" type="image/png" href="../favicon.png" />
+
+	<script src="https://aframe.io/releases/0.8.0/aframe.min.js"></script>
+
+	<style>
+		html,
+		body {
+			height: 100%;
+		}
+
+		#controls {
+			position: absolute;
+			left: 10px;
+			top: 10px;
+		}
+	</style>
+
+	<script src="/.common/https.js"></script>
+	<script src="/.common/require.js"></script>
+</head>
+
+<body>
+	<a-scene>
+		<a-entity position="0 0 0">
+			<!-- !!! In Chrome, make sure WebVR and Gamepad Extensions flags are enabled.
+				     The WebXR Orientation Sensor Device flag breaks entering into VR Mode !!!-->
+			<a-entity id="controller" daydream-controls="hand: right"></a-entity>
+			<a-entity laser-controls="hand: right"></a-entity>
+		</a-entity>
+		<a-camera user-height="0"></a-camera>
+		<a-sky src="../img/lab2.jpg" rotation="0 -90 0"></a-sky>
+	</a-scene>
+	<div id="controls">
+		<button onclick="location.reload()">Calibrate</button>
+	</div>
+	<script>
+		var OFFSET = 1;
+
+		var initialized = false;
+		var scene = document.querySelector("a-scene");
+		var controller = scene.querySelector("#controller");
+
+		require(["jquery", "device", "xd", "webrtc"]).then(function() {
+			XD.log = console.log;
+
+			var webrtc = new WebRTC({
+				log: true,
+				room: "360box"
+			});
+
+			window.setTimeout(function() {
+				XD.trigger({
+					event: "360box",
+					init: true,
+					important: true
+				});
+			}, 1000);
+
+			setInterval(function() {
+				webrtc.send({
+					event: "controllerupdated",
+					room: "360box",
+					position: controller.getAttribute("position"),
+					rotation: controller.getAttribute("rotation")
+				});
+			}, 10);
+
+			XD.on("componentchanged", function(e) {
+				var target = scene.querySelector("#" + e.target);
+				if (target) {
+					// There seems to be an offset of 1.6 m on the y-axis, but setting user-height on the camera has no effect
+					target.setAttribute("position", {
+						x: e.position.x,
+						y: e.position.y + OFFSET,
+						z: e.position.z
+					});
+					target.setAttribute("rotation", e.rotation);
+					target.setAttribute("scale", e.scale);
+				}
+
+				// There seems to be an offset of 1.6 m on the y-axis, but setting user-height on the camera has no effect
+				console.log(e.position, target.object3D.position);
+			});
+
+			XD.on("componentadded", function(e) {
+				// let's just use jQuery to create DOM element from string
+				var el = $(e.element).appendTo(scene);
+				el.get(0).addEventListener("componentchanged", console.log);
+
+				window.setTimeout(function() {
+					// There seems to be an offset of 1.6 m on the y-axis, but setting user-height on the camera has no effect
+					var target = scene.querySelector("#" + e.target);
+					var position = target.getAttribute("position");
+
+					target.setAttribute("position", {
+						x: position.x,
+						y: position.y + OFFSET,
+						z: position.z
+					});
+				}, 1000);
+			});
+
+			XD.on("componentremoved", function(e) {
+				// let's just use jQuery to remove DOM element
+				$("#" + e.target).remove();
+			});
+		});
+	</script>
+</body>
+
+</html>

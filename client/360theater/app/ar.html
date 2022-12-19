@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>360box AR App</title>
+
+	<link rel="icon" type="image/png" href="../favicon.png" />
+
+	<script src="/.common/webxr-polyfill.js"></script>
+	<script src="../vendor/aframe-master.js"></script>
+	<script src="../vendor/aframe-xr.js"></script>
+
+	<style>
+		html,
+		body {
+			height: 100%;
+		}
+
+		#controls {
+			position: absolute;
+			left: 10px;
+			top: 10px;
+		}
+	</style>
+
+	<script src="/.common/https.js"></script>
+	<script src="/.common/require.js"></script>
+</head>
+
+<body>
+	<a-scene xr="ar: true; vr: false; magicWindow: true">
+		<a-camera user-height="0"></a-camera>
+	</a-scene>
+	<div id="controls">
+		<button onclick="location.reload()">Calibrate</button>
+	</div>
+	<script>
+		var OFFSET = 1;
+
+		var initialized = false;
+		var scene = document.querySelector("a-scene");
+
+		require(["jquery", "device", "xd", "webrtc"]).then(function() {
+			XD.log = console.log;
+
+			window.setTimeout(function() {
+				XD.send({
+					event: "360box",
+					init: true,
+					important: true
+				});
+			}, 500);
+
+			setTimeout(function() {
+				let webrtc = new WebRTC({
+					room: "360box"
+				});
+
+				let camera = document.getElementsByTagName('canvas')[0],
+					aframe = document.getElementsByTagName('canvas')[1];
+
+				if (camera && aframe) {
+					webrtc.addStream(camera.captureStream());
+					webrtc.addStream(aframe.captureStream());
+				} else {
+					console.error("can't access streams");
+				}
+			}, 500);
+
+			XD.on("componentchanged", function(e) {
+				var target = scene.querySelector("#" + e.target);
+
+				if (target) {
+					// There seems to be an offset of 1.6 m on the y-axis, but setting user-height on the camera has no effect
+					target.setAttribute("position", {
+						x: e.position.x,
+						y: e.position.y + OFFSET,
+						z: e.position.z
+					});
+
+					target.setAttribute("rotation", e.rotation);
+					target.setAttribute("scale", e.scale);
+				}
+
+				// There seems to be an offset of 1.6 m on the y-axis, but setting user-height on the camera has no effect
+				// console.log(e.position, target.object3D.position);
+
+				console.log("ready");
+			});
+
+			XD.on("componentadded", function(e) {
+				// let's just use jQuery to create DOM element from string
+				var el = $(e.element).appendTo(scene);
+
+				window.setTimeout(function() {
+					// There seems to be an offset of 1.6 m on the y-axis, but setting user-height on the camera has no effect
+					var target = scene.querySelector("#" + e.target);
+					var position = target.getAttribute("position");
+
+					target.setAttribute("position", {
+						x: position.x,
+						y: position.y + OFFSET,
+						z: position.z
+					});
+				}, 1000);
+			});
+
+			XD.on("componentremoved", function(e) {
+				// let's just use jQuery to remove DOM element
+				$("#" + e.target).remove();
+			});
+		});
+	</script>
+</body>
+
+</html>

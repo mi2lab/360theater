@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html ⚡>
+
+<head>
+	<title>360theater</title>
+
+	<link rel="icon" type="image/png" href="favicon.png" />
+
+	<!-- CSS libraries -->
+	<link href="//use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet" />
+	<link href="//code.getmdl.io/1.3.0/material.indigo-pink.min.css" rel="stylesheet" />
+
+	<!-- JS libraries -->
+	<script src="//code.jquery.com/jquery-3.3.1.min.js"></script>
+	<script src="https://use.fontawesome.com/releases/v5.0.8/js/all.js" defer integrity="sha384-SlE991lGASHoBfWbelyBPLsUlwY1GwNDJo3jSJO04KZ33K2bwfV9YBauFfnzvynJ" crossorigin="anonymous"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/aframe/0.7.1/aframe.min.js"></script>
+	<script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v3.13.1/dist/aframe-extras.min.js"></script>
+	<script src="//code.getmdl.io/1.3.0/material.min.js" defer></script>
+	<script src="/.common/three.js/TransformControls.js"></script>
+	<script src="/.common/https.js"></script>
+	<script src="/.common/require.js"></script>
+	<script src="/.common/camera-v3.js"></script>
+	<script src="/.common/xd.js"></script>
+	<script src="/.common/webrtc.js"></script>
+
+	<!-- custom CSS -->
+	<style>
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+			color: #fff;
+			user-select: none;
+		}
+
+		button {
+			margin: 5px 0 5px 0;
+		}
+
+		input[type="file"] {
+			width: 175px;
+		}
+
+		input[type="number"] {
+			margin: 5px 0 5px 0;
+			width: 40px;
+			background: rgba(0,0,0,.2);
+			border: 1px solid rgba(255,255,255,.5);
+			color: white;
+			padding: 4px 5px;
+			border-radius: 2px;
+			margin: 0;
+		}
+
+		.cameraPosition {
+			background-color: darkolivegreen;
+			display: none;
+			position: absolute;
+			width: 5px;
+			height: 5px
+		}
+
+		.cone {
+			display: none;
+			position: absolute;
+			width: 0;
+			height: 0;
+			border-left: 10px solid transparent;
+			border-right: 10px solid transparent;
+			border-top: 20px solid darkolivegreen;
+			-moz-border-radius: 50%;
+			-webkit-border-radius: 50%;
+			border-radius: 50%;
+
+			transform-origin: center 22.5px;
+		}
+
+		.fa-lightbulb {
+			color: yellow;
+		}
+
+		.inline-block {
+			display: inline-block;
+		}
+
+		.map {
+			position: relative;
+			background-color: rgba(255, 255, 255, .5);
+			border: 5px #fff solid;
+		}
+
+		.map-object {
+			background-color: tomato;
+			border: 2px transparent solid;
+			position: absolute;
+			width: 10px;
+			height: 10px;
+		}
+
+		.map-object--highlighted {
+			border: 2px #fff solid;
+		}
+
+		.map-cylinder {
+			background-color: olivedrab;
+			border-radius: 100%;
+		}
+
+		.map-obj {
+			transform: rotateZ(45deg);
+		}
+
+		.map-plane {
+			background-color: olivedrab;
+		}
+
+		.map-sphere {
+			border-radius: 100%;
+		}
+
+		#controls {
+			position: absolute;
+			top: 10px;
+			right: 10px;
+			text-align: right;
+		}
+
+		#floorplan-container {
+			position: absolute;
+			bottom: 10px;
+			right: 10px;
+			text-align: center;
+		}
+
+		#floorplan {
+			border-top-style: dashed;
+			width: 120px;
+			height: 200px;
+		}
+
+		#sideview {
+			border-left-style: dashed;
+			width: 200px;
+			height: 80px;
+		}
+
+		#sideview>.cone {
+			transform-origin: center 22.5px;
+			transform: rotate3D(0, 0, 1, -90deg);
+		}
+
+		#toggle-container {
+			position: absolute;
+			left: 10px;
+			top: 10px;
+		}
+
+		#toggle-container-video,
+		#toggle-container-calibration {
+			cursor: pointer;
+		}
+
+		#insert-bar {
+			overflow: hidden;
+			background: rgba(0,0,0,.2);
+			padding: 10px 10px 5px 10px;
+			border-radius: 2px;
+		}
+
+		.insert, .insert-file {
+			width: 50px;
+			float: left;
+			margin-right: 10px;
+			text-align: center;
+			font-variant: small-caps;
+			font-size: 11px;
+			cursor: pointer;
+		}
+
+		.insert-file {
+			margin-right: 0px;
+			width: 40px;
+		}
+
+		.insert svg, .insert-file svg {
+			fill: white;
+			width: 30px;
+			margin-bottom: -5px;
+		}
+
+		.real-insert-file {
+			display: none;
+		}
+
+		#scaling {
+			margin: 0;
+		}
+
+		input[type=number]::-webkit-inner-spin-button {
+			-webkit-appearance: none;
+		}
+
+		#insert-bar-two .action {
+			float: right;
+			margin-left: 10px;
+			margin-top: 10px;
+		}
+
+		#trash {
+			background: rgba(0,0,0,.2);
+			padding: 3px 7px;
+			border-radius: 2px;
+			cursor: pointer;
+		}
+
+		#trash span {
+			margin-left: 5px;
+		}
+	</style>
+
+	<!-- custom JS -->
+	<script>
+		/* Variables */
+
+		let $aGroup;
+		let $aScene;
+		let $floorplan;
+		let $sideview;
+		let marker;
+
+		const objects = {};
+		const rotations = {};
+		const camera = {
+			floorplan: {
+				x: 0,
+				y: 0
+			},
+			sideview: {
+				x: 0,
+				y: 0
+			}
+		};
+
+		const COLORS = ["#1abc9c", "#3498db", "#9b59b6", "#34495e", "#f1c40f", "#e67e22", "#95a5a6", "#16a085", "#2980b9", "#8e44ad", "#f39c12", "#d35400", "#bdc3c7"];
+		const HALF_SQUARE = 4.5;
+
+		let width = 4;
+		let length = 7;
+		let height = 3;
+		let isCalibrating = false;
+
+		let activeObject;
+		let borderWidth;
+		let control;
+		let floorplanWidth, floorplanLength;
+		let sideviewHeight, sideviewLength;
+		let widthRatio, lengthRatio, heightRatio;
+
+		XD.log = console.log;
+
+		/* Classes */
+
+		function SceneObject(args) {
+			const _args = args;
+			const _index = _args.index;
+
+			let _$element;
+			let _x = _args.x || 0;
+			let _y = _args.y || 0;
+			let _z = _args.z || 0;
+
+			switch (_args.type) {
+				case "box":
+					_$element = $(`<a-box id="object${_index}" color="tomato" width="${_args.width}" height="${_args.height}"
+						depth="${_args.depth}" position="${_x} ${_y} ${_z}" data-scale="1"></a-box>`);
+					break;
+				case "cylinder":
+					_$element = $(`<a-cylinder id="object${_index}" radius="${_args.radius}" height="${_args.height}"
+						color="olivedrab" position="${_x} ${_y} ${_z}" data-scale="1"></a-cylinder>`);
+					break;
+				case "obj":
+					let objModelString;
+
+					if (_args.mtl) {
+						objModelString = `obj: url(${_args.obj}); mtl: url(${_args.mtl})`;
+					} else {
+						objModelString = `obj: url(${_args.obj})`;
+					}
+
+					_$element = $(`<a-entity id="object${_index}" position="${_x} ${_y} ${_z}" scale="0.2 0.2 0.2" data-scale="0.2"
+						obj-model="${objModelString}"></a-entity>`);
+					break;
+				case "plane":
+					_$element = $(`<a-plane id="object${_index}" rotation="-90 0 0" width="${_args.width}" height="${_args.height}"
+						color="olivedrab" position="${_x} ${_y} ${_z}" data-scale="1"></a-plane>`);
+					break;
+				case "sphere":
+					_$element = $(`<a-sphere id="object${_index}" color="tomato" radius="${_args.radius}"
+						position="${_x} ${_y} ${_z}" data-scale="1"></a-sphere>`);
+			}
+
+			this.getElement = function() {
+				return _$element;
+			};
+
+			this.getIndex = function() {
+				return _index;
+			};
+
+			this.getPosition = function() {
+				return {
+					x: _x,
+					y: _y,
+					z: _z
+				};
+			};
+
+			this.setPosition = function(x, y, z) {
+				_x = x;
+				_y = y;
+				_z = z;
+
+				_$element.attr("position", `${x} ${y} ${z}`);
+			};
+		}
+
+		function MapObject(args) {
+			const _args = args;
+			const _index = _args.index;
+
+			let _x = _args.x;
+			let _y = _args.y;
+
+			let _bgColor = "";
+
+			if (_args.color) {
+				_bgColor = "background-color:" + _args.color;
+			}
+
+			const _$element = $(`<div data-index="${_index}" class="map-object${_index} map-object map-${_args.type}" style="left: ${_x}px; top: ${_y}px; ${_bgColor}"></div>`);
+
+			this.getElement = function() {
+				return _$element;
+			};
+
+			this.getIndex = function() {
+				return _index;
+			};
+
+			this.getPosition = function() {
+				return {
+					x: _x,
+					y: _y
+				};
+			};
+
+			this.setPosition = function(x, y) {
+				_x = x;
+				_y = y;
+
+				_$element.css({
+					left: x,
+					top: y
+				});
+			};
+		}
+
+		/* The Business Logic */
+
+		const xdUpdate = function(event, id) {
+			if (!document.querySelector("#" + id)) {
+				return;
+			}
+
+			document.querySelector("#" + id).flushToDOM();
+
+			const el = document.querySelector("#" + id);
+			const html = el.outerHTML;
+
+			switch (event) {
+				case "componentadded":
+					XD.trigger(event, {
+						target: id,
+						element: html,
+						important: true
+					});
+					break;
+				case "componentchanged":
+					XD.trigger(event, {
+						target: id,
+						position: el.getAttribute("position"),
+						rotation: rotations[id] || el.getAttribute("rotation"),
+						scale: el.getAttribute("scale"),
+						important: true
+					});
+					break;
+			}
+		};
+
+		const convert = {
+			sceneToFloorplan: function(x, z) {
+				return {
+					x: camera.floorplan.x + x * widthRatio - HALF_SQUARE,
+					y: camera.floorplan.y + z * lengthRatio - HALF_SQUARE
+				};
+			},
+			sceneToSideview: function(y, z) {
+				return {
+					x: camera.sideview.x + z * sideviewLengthRatio - HALF_SQUARE,
+					y: camera.sideview.y - y * heightRatio - HALF_SQUARE
+				};
+			},
+			floorplanToScene: function(x, y) {
+				return {
+					x: (x - camera.floorplan.x + HALF_SQUARE) / widthRatio,
+					z: (y - camera.floorplan.y + HALF_SQUARE) / lengthRatio
+				};
+			},
+			sideviewToScene: function(x, y) {
+				return {
+					y: (camera.sideview.y - y - HALF_SQUARE) / heightRatio,
+					z: (x - camera.sideview.x + HALF_SQUARE) / sideviewLengthRatio
+				};
+			}
+		};
+
+		const insertObject = function(type, objFile, mtlFile) {
+			const position = marker.object3D.getWorldPosition();
+			const index = new Date().getTime();
+
+			let color;
+			let object;
+			const args = {
+				type: type,
+				index: index,
+				x: position.x,
+				y: position.y,
+				z: position.z
+			};
+
+			switch (type) {
+				case "box":
+					object = new SceneObject(Object.assign({
+						width: .2,
+						height: .2,
+						depth: .2
+					}, args));
+					break;
+				case "cylinder":
+					object = new SceneObject(Object.assign({
+						height: .2,
+						radius: .1
+					}, args));
+					break;
+				case "obj":
+					color = COLORS[Math.floor(Math.random() * COLORS.length)];
+					object = new SceneObject(Object.assign({
+						obj: objFile,
+						mtl: mtlFile
+					}, args));
+					break;
+				case "plane":
+					object = new SceneObject(Object.assign({
+						height: .2,
+						width: .2
+					}, args));
+					break;
+				case "sphere":
+					object = new SceneObject(Object.assign({
+						radius: .1
+					}, args));
+			}
+
+			$aScene.append(object.getElement());
+
+			const floorplanPos = convert.sceneToFloorplan(position.x, position.z);
+			const sideviewPos = convert.sceneToSideview(position.y, position.z);
+
+			const floorplanObj = new MapObject({
+				type: type,
+				index: index,
+				x: floorplanPos.x,
+				y: floorplanPos.y,
+				color: color
+			});
+			const sideviewObj = new MapObject({
+				type: type,
+				index: index,
+				x: sideviewPos.x,
+				y: sideviewPos.y,
+				color: color
+			});
+
+			$floorplan.append(floorplanObj.getElement());
+			$sideview.append(sideviewObj.getElement());
+
+			objects["object" + index] = {
+				floorplanObj: floorplanObj,
+				sceneObj: object,
+				sideviewObj: sideviewObj
+			};
+
+			xdUpdate("componentadded", "object" + index);
+		};
+
+		const getMesh = function(selector) {
+			return $(selector).get(0).object3DMap.mesh;
+		};
+
+		const calibrateCamera = function(e) {
+			const $target = $(e.target);
+			const targetId = e.target.id;
+
+			const x = e.pageX - $target.offset().left;
+			const y = e.pageY - $target.offset().top;
+
+			const $cameraPosition = $(".cameraPosition", $target);
+			const $conePosition = $(".cone", $target);
+
+			camera[targetId].x = x - $cameraPosition.width() / 2 - borderWidth;
+			camera[targetId].y = y - $cameraPosition.height() / 2 - borderWidth;
+
+			$cameraPosition.css({
+				left: camera[targetId].x,
+				top: camera[targetId].y
+			}).show();
+
+			$conePosition.css({
+				left: camera[targetId].x - 7.5,
+				top: camera[targetId].y - 20
+			}).show();
+
+			if (targetId === "floorplan") {
+				camera.sideview.x = camera.floorplan.y;
+				$(".cameraPosition", "#sideview").css("left", camera.sideview.x);
+				$(".cone", "#sideview").css("left", camera.sideview.x - 7.5);
+			} else {
+				camera.floorplan.y = camera.sideview.x;
+				$(".cameraPosition", "#floorplan").css("top", camera.floorplan.y);
+				$(".cone", "#floorplan").css("top", camera.floorplan.y - 20);
+			}
+
+			for (let o in objects) {
+				const index = o.substr(-1);
+				const scenePos = objects[o].sceneObj.getPosition();
+
+				const newFloorplanPos = convert.sceneToFloorplan(scenePos.x, scenePos.z);
+				const newSideviewPos = convert.sceneToSideview(scenePos.y, scenePos.z);
+
+				objects[o].floorplanObj.setPosition(newFloorplanPos.x, newFloorplanPos.y);
+				objects[o].sideviewObj.setPosition(newSideviewPos.x, newSideviewPos.y);
+			}
+		};
+
+		const adjustFloorplan = function() {
+			if (length > width) {
+				floorplanLength = 200;
+				floorplanWidth = width / length * 200;
+			} else {
+				floorplanWidth = 200;
+				floorplanLength = length / width * 200;
+			}
+
+			$floorplan.css({
+				width: floorplanWidth,
+				height: floorplanLength
+			});
+
+			lengthRatio = floorplanLength / length;
+			widthRatio = floorplanWidth / width;
+		};
+
+		const adjustSideview = function() {
+			if (length > height) {
+				sideviewLength = 200;
+				sideviewHeight = height / length * 200;
+			} else {
+				sideviewHeight = 200;
+				sideviewLength = length / height * 200;
+			}
+
+			$sideview.css({
+				height: sideviewHeight,
+				width: sideviewLength
+			});
+
+			sideviewLengthRatio = sideviewLength / length;
+			heightRatio = sideviewHeight / height;
+		};
+
+		const calibrate = function() {
+			const $toggle = $("#toggle-calibration");
+
+			$toggle.toggleClass("fa-toggle-on fa-toggle-off");
+
+			// show videosphere if toggle is on
+			if ($toggle.hasClass("fa-toggle-on")) {
+				isCalibrating = true;
+			} else {
+				isCalibrating = false;
+			}
+		};
+
+		const toggleVideo = function() {
+			const $toggle = $("#toggle-video");
+
+			$toggle.toggleClass("fa-toggle-on fa-toggle-off");
+
+			// show videosphere if toggle is on
+			if ($toggle.hasClass("fa-toggle-on")) {
+				$("a-sky").attr("visible", false);
+				$("a-videosphere").attr("visible", true);
+			} else {
+				$("a-sky").attr("visible", true);
+				$("a-videosphere").attr("visible", false);
+			}
+		};
+
+		const deleteObject = function() {
+			if (activeObject) {
+				XD.trigger("componentremoved", {
+					target: `object${activeObject}`
+				});
+
+				$(`#object${activeObject}, [data-index='${activeObject}']`).remove();
+				activeObject = null;
+			}
+
+			control.detach();
+			$("#scaling, #trash").attr("disabled", true);
+		};
+
+		$(function() {
+
+			$aGroup = $("#group");
+			$aScene = $("a-scene");
+			$floorplan = $("#floorplan");
+			$sideview = $("#sideview");
+
+			marker = document.querySelector("#marker");
+
+			controller = document.querySelector("#controller");
+
+			borderWidth = parseInt($floorplan.css("border-width"));
+			floorplanWidth = $floorplan.width();
+			floorplanLength = $floorplan.height();
+			sideviewHeight = $sideview.height();
+			sideviewLength = $sideview.width();
+
+			widthRatio = floorplanWidth / width;
+			lengthRatio = floorplanLength / length;
+			sideviewLengthRatio = sideviewLength / length;
+			heightRatio = sideviewHeight / height;
+
+			let dragging = null;
+			let initialOffset = {
+				x: 0,
+				y: 0
+			};
+
+			let webrtc;
+
+			XD.on("360theater", function(e) {
+				if (e.init) {
+					window.setTimeout(function() {
+						for (let o in objects) {
+							xdUpdate("componentadded", o);
+						}
+
+						$("#webrtc").empty();
+
+						if (!webrtc) {
+							webrtc = new WebRTC({
+								log: true,
+								room: "360theater",
+								ondata: handleControllerUpdated, // for VR
+								onstream: handleStream // for AR
+							});
+						}
+					}, 1000);
+				}
+			});
+
+			AFRAME.registerComponent("rotation-reader", {
+				init: function() {
+					/**
+					 * @unused
+					 */
+					this.prevRotation = {
+						x: 0,
+						y: 0,
+						z: 0
+					};
+
+					this.rotationCorrection = {
+						x: 0,
+						y: 0
+					};
+				},
+				tick: function() {
+					const rotation = this.el.getAttribute("rotation");
+
+					if (isCalibrating) {
+						this.rotationCorrection = {
+							x: rotation.x,
+							y: rotation.y
+						};
+
+						return;
+					}
+
+					// normalize the rotation to degrees between +/- 0 and +/- 360
+					const rotX = Math.round(rotation.x - this.rotationCorrection.x) % 360;
+					const rotY = Math.round(rotation.y - this.rotationCorrection.y) % 360;
+
+					// The rest is partly based on Charu's work and partly based on trial & error ;)
+					let fpAxes = "0, 1, 0";
+					let svAxes = "0, 1, 0";
+
+					if (!(Math.abs(rotY) > 45 && Math.abs(rotY) < 135 || Math.abs(rotY) > 225 && Math.abs(rotY) < 315)) {
+						fpAxes = "1, 0, 0";
+
+						if (Math.abs(rotY) > 135 && Math.abs(rotY) < 225) {
+							svAxes = "0, 0, 1";
+						} else {
+							svAxes = "0, 0, -1";
+						}
+					} else if (Math.abs(rotY) > 45 && Math.abs(rotY) < 135) {
+						svAxes = "0, -1, 0";
+					}
+
+					if (rotY > 45 && rotY < 135) {
+						svAxes = "0, 1, 0";
+					}
+
+					if (rotY > 225 && rotY < 315) {
+						svAxes = "0, -1, 0";
+					}
+
+
+
+					$(".cone", "#floorplan").css({
+						transform: `rotate3D(${fpAxes}, ${rotX}deg) rotate3D(0, 0, 1, ${-rotY}deg)`
+					});
+
+					$(".cone", "#sideview").css({
+						transform: `rotate3D(0, 0, 1, -90deg) rotate3D(${svAxes}, ${-rotX}deg) rotate3D(1, 0, 0, ${rotY}deg)`
+					});
+				}
+			});
+
+			AFRAME.registerComponent("transform-controls", {
+				init: function() {
+					const camera = this.el.camera;
+					const renderer = this.el.renderer;
+					const scene = this.el.object3D;
+
+					control = new THREE.TransformControls(camera, renderer.domElement);
+					control.addEventListener("change", function(e) {
+						control.update();
+						renderer.render(scene, camera);
+
+						if (e.target.object) {
+							rotations[e.target.object.el.id] = {
+								// rotation reported by TransformControls is in radians; A-Frame takes degrees
+								x: THREE.Math.radToDeg(e.target.object.rotation._x),
+								y: THREE.Math.radToDeg(e.target.object.rotation._y),
+								z: THREE.Math.radToDeg(e.target.object.rotation._z)
+							};
+
+							xdUpdate("componentchanged", e.target.object.el.id);
+						}
+					});
+					control.setMode("rotate");
+
+					scene.add(control);
+				}
+			});
+
+			$("#floorplan, #sideview").on("mousedown", ".map-object", function(e) {
+				activeObject = $(this).data("index");
+				dragging = "map-object" + $(this).data("index");
+				initialOffset.x = e.pageX - $(this).offset().left;
+				initialOffset.y = e.pageY - $(this).offset().top;
+
+				$(".map-object--highlighted").removeClass("map-object--highlighted");
+				$(`[data-index='${activeObject}']`).addClass("map-object--highlighted");
+				$("#scaling, #trash").attr("disabled", false);
+				$("#scaling").val($(`#object${activeObject}`).data("scale"));
+
+				control.attach(getMesh(`#object${activeObject}`));
+			});
+
+			$(".insert").on("click", function() {
+				insertObject($(this).data("type"));
+			});
+
+			$(".insert-file").on("click", function() {
+				$(".real-insert-file").click();
+			});
+
+			$("#floorplan, #sideview").on("click", function(e) {
+				if (dragging) {
+					dragging = null;
+					control.attach(getMesh(`#object${activeObject}`));
+
+					return;
+				}
+
+				if (isCalibrating) {
+					calibrateCamera(e);
+				}
+			}).on("mousemove", function(e) {
+				if (!dragging) {
+					return;
+				}
+
+				const $target = $(e.delegateTarget);
+				const targetId = e.delegateTarget.id;
+
+				const o = "object" + activeObject;
+				const newX = e.pageX - $target.offset().left - borderWidth - initialOffset.x;
+				const newY = e.pageY - $target.offset().top - borderWidth - initialOffset.y;
+				const scenePos = objects[o].sceneObj.getPosition();
+
+				let newScenePos, newSideviewPos, newFloorplanPos;
+
+				if (targetId === "floorplan") {
+					newScenePos = convert.floorplanToScene(newX, newY);
+					newSideviewPos = convert.sceneToSideview(scenePos.y, newScenePos.z);
+					newScenePos.y = scenePos.y;
+
+					objects[o].sceneObj.setPosition(newScenePos.x, newScenePos.y, newScenePos.z);
+					objects[o].sideviewObj.setPosition(newSideviewPos.x, newSideviewPos.y);
+				} else {
+					newScenePos = convert.sideviewToScene(newX, newY);
+					newFloorplanPos = convert.sceneToFloorplan(scenePos.x, newScenePos.z);
+					newScenePos.x = scenePos.x;
+
+					objects[o].sceneObj.setPosition(newScenePos.x, newScenePos.y, newScenePos.z);
+					objects[o].floorplanObj.setPosition(newFloorplanPos.x, newFloorplanPos.y);
+				}
+
+				$("." + dragging, $target).css({
+					left: newX,
+					top: newY
+				});
+
+				xdUpdate("componentchanged", "object" + activeObject);
+
+				control.detach();
+			});
+
+			$("#width").on("change", function() {
+				// make sure this is a number instead of a string, otherwise the adjustFloorplan/Sideview functions might break
+				width = parseFloat($(this).val());
+				adjustFloorplan();
+			}).val(width);
+
+			$("#length").on("change", function() {
+				// make sure this is a number instead of a string, otherwise the adjustFloorplan/Sideview functions might break
+				length = parseFloat($(this).val());
+				$("#length2").val(length);
+
+				adjustFloorplan();
+				adjustSideview();
+			}).val(length);
+
+			$("#length2").val(length);
+
+			$("#height").on("change", function() {
+				// make sure this is a number instead of a string, otherwise the adjustFloorplan/Sideview functions might break
+				height = parseFloat($(this).val());
+				adjustSideview();
+			}).val(height);
+
+			$("#scaling").on("change", function() {
+				let scalingFactor = parseFloat($(this).val());
+
+				$(`#object${activeObject}`)
+					.attr("scale", `${scalingFactor} ${scalingFactor} ${scalingFactor}`)
+					.data("scale", scalingFactor);
+
+				xdUpdate('componentchanged', `object${activeObject}`);
+			});
+
+			$("#toggle-container-video").on("click", function() {
+				toggleVideo();
+			});
+
+			$("#toggle-container-calibration").on("click", function() {
+				calibrate();
+			});
+
+			$("#trash").on("click", function() {
+				deleteObject();
+			});
+
+			/* Handle OBJ files */
+
+			// Check for the various File API support.
+			if (window.File && window.FileReader && window.FileList && window.Blob) {
+				console.warn("Great success! All the File APIs are supported.");
+
+				const handleObjFile = function(e) {
+					const files = e.target.files; // FileList object
+					let obj, mtl;
+
+					for (let i = 0; i < files.length; i++) {
+						const f = files[i];
+
+						if (f.name.indexOf(".obj") > -1) {
+							obj = `/360theater/obj/${f.webkitRelativePath}`;
+						}
+
+						if (f.name.indexOf(".mtl") > -1) {
+							mtl = `/360theater/obj/${f.webkitRelativePath}`;
+						}
+					};
+
+					if (obj) {
+						insertObject("obj", obj, mtl);
+					}
+				};
+
+				document.querySelector("[name='obj-file']").addEventListener('change', handleObjFile, false);
+			} else {
+				alert("The File APIs are not fully supported in this browser.");
+			}
+
+			/* initialize video sphere */
+
+			new Camera({
+				camera: 1,
+				video: document.querySelector("#video"),
+				onstream: function(stream) {
+					// do stuff ...
+				}
+			});
+		});
+
+		// for Daydream
+		function handleControllerUpdated(e) {
+			var pos = e.position;
+			// let's adjust it a little to better match where it should appear in the scene
+			pos.x += 1;
+			pos.y -= 1.6;
+			pos.z -= 1;
+			controller.setAttribute("position", pos);
+			controller.setAttribute("rotation", e.rotation);
+			controller.setAttribute("visible", true);
+		}
+
+		// for AR
+		function handleStream(stream) {
+			// first video is camera, second video is aframe scene
+			let $video = $("<video autoplay></video>");
+			$video.css({
+				position: "absolute",
+				width: "200px",
+				opacity: 0.66
+			});
+			$video[0].srcObject = stream;
+			$("#webrtc").append($video);
+		}
+	</script>
+</head>
+
+<!-- the markup stuff -->
+
+<body>
+	<a-scene transform-controls inspector="url: https://aframe.io/releases/0.3.0/aframe-inspector.min.js" vr-mode-ui="enabled: false">
+		<a-assets>
+			<video id="video" autoplay loop crossorigin />
+		</a-assets>
+		<a-camera rotation-reader user-height="0">
+			<a-entity id="marker" position="0 0 -2">
+				<a-sphere radius=".025" color="#EF2D5E" material="opacity: .33; transparent: true"></a-sphere>
+			</a-entity>
+		</a-camera>
+		<a-entity id="controller" obj-model="obj: url(obj/daydream/vr_controller_daydream.obj); mtl: url(obj/daydream/vr_controller_daydream.mtl)" scale="3 3 3" visible="false"></a-entity>
+		<a-sky src="img/lab2.jpg" rotation="0 -90 0"></a-sky>
+		<a-videosphere visible="false" src="#video" rotation="0 -90 0"></a-videosphere>
+		<a-entity id="group"></a-entity>
+	</a-scene>
+
+	<div id="controls">
+		<div id="insert-bar">
+			<div class="insert" data-type="box">
+				<!--cube--><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 24 30" style="enable-background:new 0 0 24 24;" xml:space="preserve"><g><path d="M7.5,11.143c0.276,0,0.5-0.224,0.5-0.5V9.572c0-0.276-0.224-0.5-0.5-0.5S7,9.296,7,9.572v1.071   C7,10.919,7.224,11.143,7.5,11.143z"/><path d="M7.5,4.714c0.276,0,0.5-0.223,0.5-0.5V3.143c0-0.276-0.224-0.5-0.5-0.5S7,2.867,7,3.143v1.071   C7,4.49,7.224,4.714,7.5,4.714z"/><path d="M7.5,14.357c0.276,0,0.5-0.223,0.5-0.5v-1.071c0-0.276-0.224-0.5-0.5-0.5S7,12.51,7,12.786v1.071   C7,14.133,7.224,14.357,7.5,14.357z"/><path d="M8,16c0-0.276-0.224-0.5-0.5-0.5S7,15.724,7,16v0.293l-0.208,0.208c-0.195,0.195-0.195,0.512,0,0.707   c0.098,0.097,0.226,0.146,0.354,0.146s0.256-0.049,0.353-0.146L7.707,17H8c0.276,0,0.5-0.224,0.5-0.5S8.276,16,8,16z"/><path d="M11.214,16h-1.071c-0.276,0-0.5,0.224-0.5,0.5s0.224,0.5,0.5,0.5h1.071c0.277,0,0.5-0.224,0.5-0.5S11.49,16,11.214,16z"/><path d="M14.429,16h-1.071c-0.276,0-0.5,0.224-0.5,0.5s0.224,0.5,0.5,0.5h1.071c0.276,0,0.5-0.224,0.5-0.5S14.705,16,14.429,16z"/><path d="M20.857,16h-1.071c-0.276,0-0.5,0.224-0.5,0.5s0.224,0.5,0.5,0.5h1.071c0.277,0,0.5-0.224,0.5-0.5S21.133,16,20.857,16z"/><path d="M24,16.5v-16c0-0.038-0.014-0.072-0.022-0.107c-0.006-0.027-0.006-0.056-0.017-0.082c-0.051-0.124-0.149-0.222-0.273-0.273   c-0.026-0.011-0.054-0.01-0.082-0.017C23.572,0.014,23.538,0,23.5,0h-16C7.471,0,7.445,0.012,7.417,0.017   C7.381,0.023,7.344,0.024,7.31,0.038C7.248,0.064,7.193,0.1,7.146,0.147l0,0l-7,7c-0.004,0.004-0.005,0.01-0.01,0.014   c-0.04,0.043-0.075,0.092-0.098,0.147C0.013,7.371,0,7.436,0,7.502v15.997c0,0.066,0.013,0.132,0.039,0.193   c0.014,0.033,0.038,0.058,0.058,0.087c0.017,0.025,0.027,0.052,0.049,0.074c0.017,0.016,0.038,0.023,0.056,0.037   c0.034,0.026,0.067,0.054,0.107,0.07C0.37,23.987,0.435,24,0.5,24h16c0.065,0,0.13-0.013,0.191-0.039   c0.056-0.023,0.104-0.058,0.148-0.098c0.004-0.004,0.01-0.005,0.014-0.009l7-7l0,0c0.046-0.046,0.083-0.102,0.108-0.163   c0.014-0.035,0.016-0.071,0.022-0.108C23.988,16.555,24,16.529,24,16.5z M7.27,1.437C7.34,1.474,7.416,1.5,7.5,1.5   C7.776,1.5,8,1.276,8,1h14.293l-6,6H8V6.358c0-0.276-0.224-0.5-0.5-0.5S7,6.082,7,6.358V7H1.707L7.27,1.437z M1.207,22.793   c-0.06-0.06-0.132-0.095-0.207-0.118V8h15v15H1.325C1.302,22.925,1.267,22.853,1.207,22.793z M17,17h0.643   c0.276,0,0.5-0.224,0.5-0.5s-0.224-0.5-0.5-0.5H17V7.707l6-6V16c-0.276,0-0.5,0.224-0.5,0.5c0,0.084,0.026,0.16,0.063,0.23   L17,22.293V17z"/><path d="M2.86,20.433L2.073,21.22c-0.195,0.195-0.195,0.512,0,0.707c0.098,0.097,0.226,0.146,0.354,0.146s0.256-0.049,0.353-0.146   l0.787-0.787c0.195-0.195,0.195-0.512,0-0.707S3.055,20.238,2.86,20.433z"/><path d="M5.22,18.073L4.433,18.86c-0.195,0.195-0.195,0.512,0,0.707c0.098,0.097,0.226,0.146,0.354,0.146s0.255-0.048,0.353-0.146   l0.787-0.787c0.195-0.195,0.195-0.512,0-0.707S5.415,17.878,5.22,18.073z"/></g><text x="0" y="39" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">Created by icon 54</text><text x="0" y="44" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">from the Noun Project</text></svg>
+				<br />cube
+			</div>
+			<div class="insert" data-type="plane">
+				<!--plane--><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 24 30" style="enable-background:new 0 0 24 24;" xml:space="preserve"><path d="M23.5,4.5h-23C0.224,4.5,0,4.724,0,5v14c0,0.276,0.224,0.5,0.5,0.5h23c0.276,0,0.5-0.224,0.5-0.5V5  C24,4.724,23.776,4.5,23.5,4.5z M23,18.5H1v-13h22V18.5z"/><text x="0" y="39" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">Created by icon 54</text><text x="0" y="44" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">from the Noun Project</text></svg>
+				<br />plane
+			</div>
+			<div class="insert" data-type="sphere">
+				<!--sphere--><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 24 30" style="enable-background:new 0 0 24 24;" xml:space="preserve"><g><path d="M5.419,10.45c0.025,0,0.051-0.002,0.077-0.006c0.318-0.049,0.648-0.093,0.989-0.134c0.275-0.033,0.47-0.282,0.437-0.556   C6.888,9.479,6.635,9.281,6.366,9.317C6.013,9.36,5.672,9.406,5.345,9.456c-0.273,0.041-0.461,0.296-0.419,0.569   C4.964,10.273,5.177,10.45,5.419,10.45z"/><path d="M20.43,10.814c0.34,0.082,0.654,0.169,0.94,0.261c0.05,0.016,0.102,0.024,0.153,0.024c0.211,0,0.408-0.135,0.477-0.348   c0.085-0.262-0.059-0.544-0.322-0.629c-0.308-0.099-0.647-0.193-1.013-0.281c-0.281-0.065-0.54,0.102-0.604,0.37   C19.996,10.48,20.161,10.749,20.43,10.814z"/><path d="M17.492,10.307c0.341,0.041,0.671,0.085,0.99,0.133c0.025,0.003,0.051,0.005,0.075,0.005c0.243,0,0.457-0.178,0.494-0.426   c0.041-0.273-0.148-0.527-0.42-0.568c-0.33-0.049-0.669-0.095-1.02-0.137c-0.268-0.027-0.523,0.163-0.556,0.437   S17.218,10.274,17.492,10.307z"/><path d="M12.499,9.002L12,9l-0.524,0.002C11.2,9.004,10.978,9.23,10.979,9.506c0.002,0.276,0.233,0.492,0.504,0.496L12,10   l0.489,0.002c0.002,0,0.004,0,0.005,0c0.275,0,0.497-0.22,0.5-0.496C12.997,9.231,12.773,9.004,12.499,9.002z"/><path d="M2.453,11.106c0.051,0,0.103-0.008,0.154-0.025c0.286-0.092,0.6-0.18,0.94-0.263c0.268-0.065,0.432-0.335,0.367-0.604   C3.848,9.946,3.576,9.781,3.31,9.847c-0.365,0.089-0.703,0.184-1.011,0.283c-0.262,0.085-0.407,0.366-0.322,0.629   C2.046,10.971,2.242,11.106,2.453,11.106z"/><path d="M24,11.999c0-0.003-0.001-0.005-0.001-0.007C23.995,5.378,18.614,0,12,0C5.383,0,0,5.383,0,12s5.383,12,12,12   c6.615,0,11.997-5.38,12-11.995C23.999,12.003,24,12.001,24,11.999z M22.959,11.208c-0.175,0.182-0.195,0.467-0.029,0.663   C22.974,11.923,23,11.971,23,12c0,0.679-3.883,2-11,2c-0.687,0-1.335-0.016-1.961-0.039C10.015,13.335,10,12.687,10,12   c0-7.117,1.321-11,2-11c0.029,0,0.077,0.026,0.129,0.069c0.093,0.078,0.208,0.117,0.321,0.117c0.125,0,0.245-0.055,0.34-0.146   C18.223,1.429,22.569,5.774,22.959,11.208z M10.645,1.092C9.714,2.779,9.263,6.138,9.09,9.083C8.861,9.096,8.631,9.108,8.408,9.124   C8.132,9.143,7.924,9.383,7.944,9.658c0.019,0.264,0.238,0.465,0.498,0.465c0.013,0,0.025-0.001,0.035-0.002   c0.185-0.013,0.375-0.023,0.564-0.034C9.013,10.774,9,11.425,9,12c0,0.576,0.014,1.228,0.041,1.915C3.819,13.617,1,12.578,1,12   c0-0.029,0.026-0.077,0.07-0.128c0.166-0.198,0.146-0.483-0.03-0.665C1.416,5.964,5.477,1.731,10.645,1.092z M1.092,13.355   c1.688,0.932,5.051,1.383,7.998,1.555c0.172,2.946,0.623,6.309,1.555,7.998C5.663,22.292,1.708,18.337,1.092,13.355z M12.791,22.96   c-0.182-0.175-0.466-0.194-0.663-0.029C12.077,22.974,12.029,23,12,23c-0.578,0-1.617-2.82-1.915-8.041   C10.772,14.986,11.423,15,12,15c0.576,0,1.226-0.014,1.913-0.041c-0.011,0.18-0.02,0.363-0.032,0.54   c-0.018,0.276,0.19,0.514,0.465,0.533c0.012,0.001,0.023,0.001,0.035,0.001c0.26,0,0.479-0.202,0.498-0.468   c0.015-0.214,0.026-0.436,0.039-0.655c2.945-0.173,6.303-0.624,7.99-1.555C22.268,18.523,18.035,22.584,12.791,22.96z"/><path d="M14.491,10.98c-0.276,0.003-0.497,0.23-0.494,0.506L14,12l-0.002,0.492c-0.002,0.276,0.221,0.502,0.497,0.503   c0.001,0,0.002,0,0.003,0c0.274,0,0.498-0.222,0.5-0.497L15,12l-0.003-0.526C14.994,11.198,14.724,10.962,14.491,10.98z"/><path d="M13.557,5.494c0.048,0.318,0.093,0.649,0.135,0.99c0.03,0.254,0.246,0.44,0.495,0.44c0.02,0,0.041-0.001,0.061-0.002   c0.274-0.034,0.469-0.283,0.436-0.557c-0.042-0.352-0.089-0.692-0.139-1.02c-0.041-0.273-0.308-0.454-0.568-0.42   C13.703,4.966,13.516,5.221,13.557,5.494z"/><path d="M14.252,17.054c-0.265-0.029-0.524,0.162-0.557,0.437c-0.042,0.341-0.086,0.671-0.135,0.989   c-0.042,0.273,0.146,0.528,0.418,0.57c0.025,0.004,0.052,0.006,0.077,0.006c0.242,0,0.455-0.177,0.494-0.424   c0.051-0.329,0.097-0.669,0.139-1.021C14.721,17.337,14.525,17.088,14.252,17.054z"/><path d="M13.789,20.061c-0.273-0.066-0.54,0.101-0.604,0.369c-0.082,0.34-0.169,0.656-0.261,0.942   c-0.084,0.262,0.061,0.544,0.324,0.628c0.05,0.016,0.102,0.023,0.152,0.023c0.212,0,0.409-0.135,0.478-0.347   c0.097-0.307,0.192-0.645,0.28-1.011C14.224,20.396,14.059,20.126,13.789,20.061z"/><path d="M13.181,3.547c0.055,0.229,0.26,0.382,0.486,0.382c0.039,0,0.078-0.004,0.118-0.013c0.268-0.065,0.432-0.335,0.368-0.604   C14.063,2.946,13.97,2.607,13.87,2.3c-0.085-0.262-0.366-0.406-0.629-0.322c-0.262,0.084-0.407,0.366-0.322,0.629   C13.01,2.892,13.099,3.206,13.181,3.547z"/><path d="M13.878,8.477c0.024,0.327,0.044,0.661,0.061,1c0.007,0.139,0.071,0.26,0.167,0.347c0.084,0.132,0.222,0.229,0.39,0.236   c0.34,0.017,0.674,0.037,1,0.06c0.013,0.001,0.024,0.001,0.037,0.001c0.259,0,0.479-0.201,0.497-0.463   c0.019-0.276-0.188-0.515-0.463-0.535c-0.212-0.016-0.432-0.027-0.651-0.039c-0.013-0.227-0.025-0.456-0.04-0.678   c-0.019-0.276-0.287-0.489-0.534-0.463C14.065,7.962,13.857,8.202,13.878,8.477z"/></g><text x="0" y="39" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">Created by icon 54</text><text x="0" y="44" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">from the Noun Project</text></svg>
+				<br />sphere
+			</div>
+			<div class="insert" data-type="cylinder">
+				<!--cylinder--><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 24 30" style="enable-background:new 0 0 24 24;" xml:space="preserve"><g><path d="M17.326,20.435c-0.328-0.064-0.685-0.122-1.066-0.174c-0.283-0.034-0.527,0.155-0.563,0.428   c-0.037,0.274,0.155,0.526,0.428,0.563c0.362,0.049,0.699,0.104,1.012,0.164c0.033,0.006,0.064,0.009,0.096,0.009   c0.235,0,0.444-0.166,0.489-0.404C17.774,20.749,17.597,20.487,17.326,20.435z"/><path d="M7.721,20.264c-0.382,0.051-0.74,0.111-1.068,0.175c-0.272,0.053-0.448,0.316-0.394,0.587   c0.047,0.238,0.256,0.403,0.489,0.403c0.032,0,0.065-0.003,0.098-0.007c0.311-0.062,0.649-0.117,1.01-0.166   c0.274-0.038,0.465-0.29,0.428-0.563C8.247,20.419,7.996,20.226,7.721,20.264z"/><path d="M10.923,20.015c-0.364,0.01-0.72,0.025-1.066,0.046c-0.276,0.016-0.487,0.252-0.47,0.528   c0.016,0.266,0.235,0.471,0.499,0.471c0.01,0,0.019,0,0.03-0.001c0.336-0.019,0.683-0.034,1.037-0.044   c0.275-0.008,0.493-0.238,0.485-0.514C11.43,20.224,11.196,20.008,10.923,20.015z"/><path d="M14.124,20.06c-0.345-0.02-0.702-0.035-1.066-0.045c-0.326-0.008-0.506,0.211-0.514,0.486   c-0.007,0.277,0.21,0.506,0.486,0.514c0.354,0.009,0.701,0.024,1.037,0.043c0.009,0.001,0.019,0.001,0.028,0.001   c0.263,0,0.484-0.206,0.5-0.471C14.61,20.312,14.4,20.076,14.124,20.06z"/><path d="M20,2c0-0.076-0.019-0.145-0.049-0.21C19.442,0.057,12.787,0,12,0S4.558,0.057,4.049,1.79C4.019,1.855,4,1.924,4,2v20   c0,0.08,0.022,0.156,0.054,0.227C4.601,23.944,11.216,24,12,24c0.787,0,7.442-0.057,7.951-1.79C19.981,22.145,20,22.076,20,22V2z    M12,1c4.112,0,6.454,0.621,6.941,1C18.454,2.379,16.112,3,12,3S5.546,2.379,5.059,2C5.546,1.621,7.888,1,12,1z M5.037,22.026   c0.009-0.007,0.012-0.011,0.024-0.02c0.223-0.162,0.272-0.475,0.11-0.698C5.125,21.244,5.065,21.199,5,21.164V3.067   C6.999,3.963,11.372,4,12,4s5.001-0.037,7-0.933v18.098c-0.065,0.034-0.125,0.08-0.171,0.144c-0.159,0.218-0.113,0.52,0.099,0.686   C18.465,22.373,16.144,23,12,23C7.706,23,5.36,22.326,5.037,22.026z"/></g><text x="0" y="39" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">Created by icon 54</text><text x="0" y="44" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">from the Noun Project</text></svg>
+				<br />cylinder
+			</div>
+			<div class="insert-file">
+				<!--file--><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 24 30" style="enable-background:new 0 0 24 24;" xml:space="preserve"><g><path d="M20.5,0h-11C9.433,0,9.368,0.014,9.307,0.039C9.278,0.051,9.256,0.073,9.23,0.09C9.202,0.108,9.17,0.122,9.146,0.146l-6,6   C3.123,6.169,3.11,6.2,3.092,6.227c-0.018,0.027-0.041,0.05-0.053,0.08C3.014,6.368,3,6.433,3,6.5v17C3,23.776,3.224,24,3.5,24h17   c0.276,0,0.5-0.224,0.5-0.5v-23C21,0.224,20.776,0,20.5,0z M9,1.707V6H4.707L9,1.707z M20,23H4V7h5.5C9.776,7,10,6.776,10,6.5V1h10   V23z"/><path d="M7.001,17.989C7.001,17.993,7,17.998,7,18.002C7.003,19.375,9.593,20,12,20c2.408,0,5-0.626,5-2   c0-0.257-0.091-0.488-0.254-0.694L12.459,7.304c-0.157-0.368-0.762-0.368-0.919,0L7.251,17.311   C7.092,17.512,7.004,17.738,7.001,17.989z M12,8.77l3.292,7.68C14.358,16.147,13.159,16,12,16s-2.358,0.147-3.292,0.45L12,8.77z    M8.107,17.849C8.463,17.53,9.778,17,12,17s3.537,0.53,3.892,0.849l0.083,0.195C15.851,18.33,14.5,19,12,19   s-3.851-0.67-3.976-0.956L8.107,17.849z"/></g><text x="0" y="39" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">Created by icon 54</text><text x="0" y="44" fill="#000000" font-size="5px" font-weight="bold" font-family="'Helvetica Neue', Helvetica, Arial-Unicode, Arial, Sans-serif">from the Noun Project</text></svg>
+				<br />file
+			</div>
+			<input class="real-insert-file" type="file" name="obj-file" webkitdirectory multiple />
+		</div>
+		<div id="insert-bar-two">
+			<div id="trash" class="action">
+				remove object <span><i class="far fa-trash-alt"></i></span>
+			</div>
+			<div class="action">scaling factor <input id="scaling" type="number" value="1" step=".01" disabled /></div>
+		</div>
+	</div>
+
+	<div id="floorplan-container">
+		<table border="0" cellpadding="5" cellspacing="0">
+			<tr>
+				<td>
+					Height:<span style="visibility: hidden"> m</span><br />
+					<input id="height" type="number" /> m
+				</td>
+				<td>
+					<div id="sideview" class="map">
+						<i class="far fa-lightbulb" data-fa-transform="rotate-180"></i>
+						<div class="cameraPosition"></div>
+						<div class="cone"></div>
+					</div>
+				</td>
+				<td>
+					<div id="floorplan" class="map">
+						<div class="cameraPosition"></div>
+						<div class="cone"></div>
+					</div>
+				</td>
+				<td>
+					Length:<span style="visibility: hidden"> m</span><br />
+					<input id="length" type="number" /> m
+				</td>
+			</tr>
+			<tr>
+				<td>
+
+				</td>
+				<td>
+					Length:
+					<input id="length2" type="number" disabled /> m
+				</td>
+				<td>
+					Width:
+					<input id="width" type="number" /> m
+				</td>
+				<td></td>
+			</tr>
+		</table>
+	</div>
+	<div id="toggle-container">
+		<div id="toggle-container-video">
+			<i id="toggle-video" class="fas fa-toggle-off"></i> 360 video stream
+		</div>
+		<div id="toggle-container-calibration">
+			<i id="toggle-calibration" class="fas fa-toggle-off"></i> calibration mode
+		</div>
+		<div id="webrtc"></div>
+	</div>
+</body>
+
+</html>
